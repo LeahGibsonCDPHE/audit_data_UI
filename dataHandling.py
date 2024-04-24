@@ -22,6 +22,7 @@ class ProcessFiles:
     - adding new columns and flags to the data
     """
     
+    
     def __init__(self, uploaded_files):
         """
         Processes uploaded data files
@@ -38,8 +39,8 @@ class ProcessFiles:
         self.analysis_data, self.display_data = self.load_and_merge_data(uploaded_files)
         
         
-
-    def load_and_merge_data(self, list_of_uploaded_files):
+    @st.cache_data
+    def load_and_merge_data(_self, list_of_uploaded_files):
         """
         Loads and merges data files for the specified vehile and date. 
         If there is no data, tells user there was an error and end program.  
@@ -71,12 +72,12 @@ class ProcessFiles:
                 merged_df = pd.concat([merged_df, df], ignore_index=True)
         
         # clean data
-        cleaned_df = self.clean_data(merged_df)
+        cleaned_df = _self.clean_data(merged_df)
         # add datetimes
-        cleaned_df = self.add_datetimes(cleaned_df)
+        cleaned_df = _self.add_datetimes(cleaned_df)
 
         # made column with just datetimes
-        datetime_df = self.add_datetimes(merged_df)
+        datetime_df = _self.add_datetimes(merged_df)
 
         return cleaned_df, datetime_df
 
@@ -143,17 +144,19 @@ class CheckInputs:
 
             return False
     
-    def check_compound(self, compound):
+    def check_compound(self, compound, data):
         """
         Cheks that the compound is one of the headers of the analysis df.
         
         Inputs:
         - compound: string
+        - data: df of data used in analysis
         
         Returns: True/False
         """
 
-        headers = self.analysis_df.columns.tolist()
+        headers = data.columns.tolist()
+ 
 
         if compound in headers:
             return True
