@@ -11,17 +11,33 @@ import chardet
 import pytz
 import pandas as pd
 import numpy as np
+import streamlit as st
 
 
 class ProcessFiles:
+
     """
     Class for all processing of data, including:
     - loading, merging, cleaning unloaded files
     - adding new columns and flags to the data
     """
+    
+    def __init__(self, uploaded_files):
+        """
+        Processes uploaded data files
 
-    def __init__(self):
-        pass
+        Created two dfs; one with the cleaned data for analysis (analysis data), and the second is the working df
+        that is used to add new columns and flags, and is also displayed at the top of the UI.
+
+        Inputs:
+        - uploaded_files: list of uploaded files from streamlit
+
+        Returns: none
+        """
+
+        self.analysis_data, self.display_data = self.load_and_merge_data(uploaded_files)
+        
+        
 
     def load_and_merge_data(self, list_of_uploaded_files):
         """
@@ -62,13 +78,11 @@ class ProcessFiles:
         # made column with just datetimes
         datetime_df = self.add_datetimes(merged_df)
 
-        
-
-        return 
+        return cleaned_df, datetime_df
 
     def clean_data(self, df):
         """
-        Makes 2 dataframes, one with the cleaned data for plotting and analysis, and a second with the raw data for saving.
+        Cleans data for autocalibrations
         """
         
         # clean data
@@ -101,3 +115,63 @@ class ProcessFiles:
         df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
 
         return df
+    
+
+class CheckInputs:
+    """
+    Checks the user inputs are valid
+    """
+
+    def __init__(self):
+        pass
+    
+    def check_time(self, input_time):
+        """
+        Checks that time is of the form hh:mm
+
+        Inputs:
+        - input_time: string
+
+        Returns: True/False
+        """
+
+        time_pattern = re.compile(r'^[0-2][0-9]:[0-5][0-9]$')
+
+        if time_pattern.match(input_time):
+            return True
+        else:
+
+            return False
+    
+    def check_compound(self, compound):
+        """
+        Cheks that the compound is one of the headers of the analysis df.
+        
+        Inputs:
+        - compound: string
+        
+        Returns: True/False
+        """
+
+        headers = self.analysis_df.columns.tolist()
+
+        if compound in headers:
+            return True
+        else:
+            return False
+
+
+    def check_concentration(self, concentration):
+        """
+        Checks that the calibration gas concentration is a positive number.
+        
+        Inputs: 
+        - compound
+        
+        Returns: True/False
+        """
+        if concentration.isdecimal():
+            return True
+        else:
+            return False
+
