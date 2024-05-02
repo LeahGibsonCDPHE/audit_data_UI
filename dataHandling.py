@@ -1,20 +1,21 @@
 """
-All handling of data done here:
-    - Reading CSVs
-    - Merging CSVs
-    - Selecting subsets of time
+All handling of all incoming data done here:
+    - Reading & merging files
+    - Checking and handling inputs
 """
 
 import os
+import base64
 import re
 import chardet
 import pytz
 import pandas as pd
 import numpy as np
 import streamlit as st
+from datetime import datetime
 
 
-class ProcessFiles:
+class ProcessRawFiles:
 
     """
     Class for all processing of data, including:
@@ -36,7 +37,11 @@ class ProcessFiles:
         Returns: none
         """
 
-        self.analysis_data, self.display_data = self.load_and_merge_data(uploaded_files)
+        self.analysis_data, self.display_data, self.audit_date = self.load_and_merge_data(uploaded_files)
+
+        # preserve display_data after button clicks
+        if 'dataframe' not in st.session_state:
+            st.session_state.dataframe = self.display_data  
         
         
     @st.cache_data
@@ -51,7 +56,7 @@ class ProcessFiles:
         Inputs:
         - list_of_uploaded_files: list from streamlit uplorad button
 
-        Returns: merged data as a df
+        Returns: df of cleaned data for analysis and raw df with only datetime column added and the date of analysis
         """
 
         # load data
@@ -71,6 +76,7 @@ class ProcessFiles:
 
                 merged_df = pd.concat([merged_df, df], ignore_index=True)
         
+        
         # clean data
         cleaned_df = _self.clean_data(merged_df)
         # add datetimes
@@ -79,7 +85,7 @@ class ProcessFiles:
         # made column with just datetimes
         datetime_df = _self.add_datetimes(merged_df)
 
-        return cleaned_df, datetime_df
+        return cleaned_df, datetime_df, audit_date
 
     def clean_data(self, df):
         """
@@ -178,3 +184,221 @@ class CheckInputs:
         else:
             return False
 
+
+class DataAnalysisTools:
+    """
+    Class with functions that do the various analysis.
+    """
+
+    def __init__(self):
+        pass
+
+    def localize_time_inputs(self, time_entry, audit_date):
+        """
+        Turns user's time input into a datetime and sets the timezone as MT.
+        """
+
+        # convert to datetime
+        dt = datetime.strptime(audit_date + ' ' + time_entry, '%Y%m%d %H:%M')
+
+        # set local timezone
+        local_tz = pytz.timezone('America/Denver')
+
+        # localize the datetime
+        localized_dt = local_tz.localize(dt)
+
+        print(f'{time_entry} converted to {localized_dt}')
+
+        return localized_dt
+
+    def shorten_to_analysis(self, df, start_time, end_time, compound):
+        """
+        Shortens data to the start and end time given for analysis.
+        
+        Returns series
+        """
+
+        # select chunk of data for specified time range and turn to series
+        analysis_data = df[(df.index >= start_time) & (df.index <= end_time)][compound]
+
+        return analysis_data
+    
+    def find_ideal_grouping(self, audit_series):
+        """ 
+        Finds the ideal grouping of data that minimized the variance 
+        while ensuring that the data removed is not necessary.
+        
+        Idea: 
+        First remove outliers user IQR's
+        Start with full, outliers removed data series and compute the variance.
+        Remove the data point p that is the farthest from the mean, i.e. the largest (p-u)^2
+        This rejected data is put into its own group.
+        Compute the silhoutte score of p in it's outsiders group.
+        Once s.score of p <0, stop removing data points or once set contains 15 data points, 
+        whichever comes first
+
+        Returns set of data to use for analysis, with its associated datetime
+        """
+
+        # remove outliers
+        audit_series = self._remove_outliers(audit_series)
+
+        # begin removing data
+        variances = []
+        means = []
+        sil_scores = []
+        above_mean_removed_data = []
+        below_mean_removed_data = []
+        while len(audit_series) > 15:
+            # compute variance, mean, and squared distance from data to mean
+            variance = audit_series.var()
+            data_mean = audit_series.mean()
+
+            variances.append(variance)
+            means.append(data_mean)
+
+            squared_distances = (audit_series - data_mean)**2
+
+            # Find the maximum absolute value among the squared differences
+            max_distance = squared_distances.max()
+
+            max_distance_index = squared_distances.abs().idxmax()
+
+
+            # add this value to its own set 
+            remove_point = audit_series[max_distance_index]
+
+            if isinstance(remove_point, pd.core.series.Series):
+                print('MULTIPLE REMOVE POINTS')
+                for value in remove_point.values:
+                    if (value - data_mean)**2 == max_distance:
+                        remove_point = value
+                        break
+
+            # remove the point from the audit series
+            removed_series = audit_series.drop(max_distance_index)
+
+            # compute silhoutte score of the removed point
+
+            # apply modified s.score where between cluster distance is distance from avg of 25th percentile
+            Q1 = np.nanpercentile(audit_series, 10)
+            Q3 = np.nanpercentile(audit_series, 90)
+            low_percentile = removed_series[removed_series <= Q1]
+            high_percentile = removed_series[removed_series >= Q3]
+
+
+            if remove_point > data_mean:
+                above_mean_removed_data.append(remove_point)
+                if len(above_mean_removed_data) == 1:
+                    avg_within_cluster_distance = 0
+                else:
+                    avg_within_cluster_distance = np.nanmean([abs(remove_point - p) for p in above_mean_removed_data if p != remove_point])
+                between_cluster_distance = np.nanmean([abs(remove_point - val) for val in high_percentile.values])
+            if remove_point < data_mean:
+                below_mean_removed_data.append(remove_point)
+                if len(below_mean_removed_data) == 1:
+                    avg_within_cluster_distance = 0
+                else:
+                    avg_within_cluster_distance = np.nanmean([abs(remove_point - p) for p in below_mean_removed_data if p != remove_point])
+                between_cluster_distance = np.nanmean([abs(remove_point - val) for val in low_percentile.values])
+           
+
+            # # minimum distance between removed point and points in cluster
+            #between_cluster_distance = np.nanmin([abs(remove_point - p) for p in removed_series.values])
+            print('the distance between clusters is', between_cluster_distance)
+
+            # compute
+            sil_score = (between_cluster_distance - avg_within_cluster_distance)/max(between_cluster_distance, avg_within_cluster_distance)
+            # add to list of silhoutte scores
+            sil_scores.append(sil_score)
+
+            # add in conditions to break
+            if sil_score < 0:
+                break
+            else:
+                # remove data from audit_series and loop again
+                audit_series = removed_series
+        
+        # # plot data do far
+        # plt.plot(variances, marker='*', label='variance')
+        # plt.plot(means, marker='o', label='mean')
+        # plt.legend()
+        # plt.show()
+
+        return audit_series
+
+    def _remove_outliers(self, audit_series):
+        """
+        Uses IQR to remove outliers.
+
+        Returns series with outliers removed
+        """
+
+        # remove outliers
+        Q1 = np.nanpercentile(audit_series, 25)
+        Q3 = np.nanpercentile(audit_series, 75)
+        IQR = Q3 - Q1
+        audit_data_no_outliers = audit_series[(audit_series >= (Q1 - 1.5*IQR)) & (audit_series <= (Q3 + 1.5*IQR))]
+
+        return audit_data_no_outliers
+    
+    def display_table(self, data):
+        """ Displays the given data in streamlit"""
+
+        st.write('Data to be used in statistics:')
+        st.dataframe(data, width=800, height=400, use_container_width=True)
+
+
+class FlagData:
+    """
+    Class for flagging data. Will be set up so that it persist past streamlit recompiling code
+    """
+
+    def __init__(self, df):
+        """
+        Class for flagging data. 
+        """
+    
+    def update_session_state(self, df):
+        """
+        Updates the session state of the display data so that it persists past refreshes.
+        """
+
+        st.session_state.dataframe = df
+
+class AnalysisFinisher:
+    """
+    Class for functions relatted to ending the analysis and saving data
+    """
+
+    def __init__(self):
+        pass
+
+
+    def download_csv(self, df):
+        """
+        Function for downloading df to csv data
+        
+        Inputs:
+        - df: display df to save
+        """
+
+        download_csv = df.to_csv(index=False).encode('utf-8')
+
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        filename = f'{current_date}_audit_analysis.csv'
+
+        return download_csv, filename
+    
+    def end_analysis(self):
+        """
+        Called when 'End Analysis' button is pressed.
+        
+        Lets user save file id desired and ends persistence of dataframe.
+
+        Input:
+        - df: display df that has haf flags added to it
+        """
+
+        if 'dataframe' in st.session_state:
+            del st.session_state.dataframe

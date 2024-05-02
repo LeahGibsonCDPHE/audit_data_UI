@@ -3,9 +3,9 @@ Constructs the UI and pulls in analysis from other files
 """
 
 import streamlit as st
-from dataHandling import ProcessFiles, CheckInputs
+from dataHandling import *
+from auditAnalysis import * 
 
-### TO DO: make login ###
 
 # initialize necessary classes
 check = CheckInputs()
@@ -20,7 +20,7 @@ uploaded_files = st.file_uploader("Choose a file", accept_multiple_files=True)
 
 if uploaded_files:
     # load and merge files
-    files = ProcessFiles(uploaded_files)
+    files = ProcessRawFiles(uploaded_files)
 
     # once files are merged, show dataframe
     st.write('Raw Audit Data')
@@ -53,8 +53,9 @@ if uploaded_files:
             # if all passes, continue with analysis
             if start_check and end_check and compound_check:
                 # proceed with analysis
-                print('proceeding with analysis')
-                ######## ZERO AIR ANALYSIS HERE ####################
+                files.display_data = ZeroAirAnalysis(start_time, end_time, files.audit_date, compound, files.analysis_data, files.display_data)
+
+
 
             else:
                 if not start_check:
@@ -193,9 +194,17 @@ if uploaded_files:
         ### GPS ANALYSIS HERE ####
 
 
+    # bottom buttons
+    finish = AnalysisFinisher()
+   
+    download_button = st.download_button('Download CSV', *finish.download_csv(files.display_data), key='download-csv')
 
+    st.write('Press the Finish Analsyis button to end the analysis of this data.')
 
-
+    end_button = st.button('Finish Analysis')
+    if end_button:
+        # end the analysis
+        files.end_analysis(finish.display_data)
 
 
 
