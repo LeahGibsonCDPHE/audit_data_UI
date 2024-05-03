@@ -13,6 +13,8 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 from datetime import datetime
+from scipy.optimize import curve_fit
+
 
 
 class ProcessRawFiles:
@@ -42,6 +44,8 @@ class ProcessRawFiles:
         # preserve display_data after button clicks
         if 'dataframe' not in st.session_state:
             st.session_state.dataframe = self.display_data  
+        
+        self.session_state_data = st.session_state.dataframe
         
         
     @st.cache_data
@@ -85,6 +89,9 @@ class ProcessRawFiles:
         # made column with just datetimes
         datetime_df = _self.add_datetimes(merged_df)
 
+        # add flag column
+        datetime_df = _self.add_flag_column(datetime_df)
+
         return cleaned_df, datetime_df, audit_date
 
     def clean_data(self, df):
@@ -123,6 +130,19 @@ class ProcessRawFiles:
 
         return df
     
+    def add_flag_column(self, df):
+        """
+        Adds column for flagging different types of audits.
+
+        Inputs:
+        - df: pandas dataframe
+
+        Returns: pandas dataframe
+        """
+
+        df['Audit Flag'] = np.nan
+
+        return df
 
 class CheckInputs:
     """
@@ -345,8 +365,68 @@ class DataAnalysisTools:
     def display_table(self, data):
         """ Displays the given data in streamlit"""
 
-        st.write('Data to be used in statistics:')
+        st.write('Data used in analysis:')
         st.dataframe(data, width=800, height=400, use_container_width=True)
+
+    def compute_basic_stats(self, analysis_series):
+        """
+        Computes min, max, median, std for the given data series
+
+        Displays in table
+
+        Returns: stats
+        """
+
+        stats = {}
+
+        stats['Minimum'] = analysis_series.min()
+        stats['Median'] = analysis_series.median()
+        stats['Maximum'] = analysis_series.max()
+        stats['Mean'] = analysis_series.mean()
+        stats['SD'] = analysis_series.std()
+
+        stats_df = pd.DataFrame.from_dict(stats, orient='index').T
+
+        # display
+        st.write('Statistics:')
+        st.dataframe(stats_df, hide_index=True, use_container_width=True)
+
+        return(stats)
+    
+    def compute_audit_stats(self, analysis_series_stat, cal_gas_conc):
+        """
+        Compute audit stats and displays table
+        """
+
+        audit_stats = {}
+
+        audit_stats['Percent Recovery'] = (analysis_series_stat['Mean'] / cal_gas_conc)*100
+        audit_stats['Max % Recovery'] = (analysis_series_stat['Maximum'] / cal_gas_conc)*100
+        audit_stats['Min % Recovery'] = (analysis_series_stat['Minimum'] / cal_gas_conc)*100
+        audit_stats['Percent Difference'] = (np.abs(analysis_series_stat['Mean'] - cal_gas_conc)/cal_gas_conc)*100
+        audit_stats['Range % Difference'] = ((analysis_series_stat['Maximum'] - analysis_series_stat['Minimum'])/np.average(analysis_series_stat['Maximum'], analysis_series_stat['Minimum'])) * 100
+
+        audit_stats_df = pd.DataFrame.from_dict(audit_stats, orient='index').T
+        # display
+        st.write('Audit Statistics:')
+        st.dataframe(audit_stats_df, hide_index=True, use_container_width=True)
+    
+
+    def curve_fit(self, x_values, y_values):
+        """
+        Does curve fit for t-stat data
+        """
+        popt, pcov = curve_fit(self._func, x_values, y_values)
+
+        return popt
+    
+    def _func(self, x, a, b, c):
+        return a*(1/(x+b))+c
+    
+
+
+
+
 
 
 class FlagData:
@@ -354,11 +434,42 @@ class FlagData:
     Class for flagging data. Will be set up so that it persist past streamlit recompiling code
     """
 
-    def __init__(self, df):
+    def __init__(self, df, start_time, end_time, type):
         """
         Class for flagging data. 
+
+        Inputs:
+        - df: dataframe to be flagged
+        - start_time: start time of the data to be flagged
+        - end_time: end time of the data to be flagged
+        - type: pe of audit/check so the data is properly flagged: 'zero', 'cal', 'mdl', 'met'
         """
+
+        self.start_time = start_time
+        self.end_time = end_time
+        self.type = type
+
+        self.type_to_flag = {
+            'zero': 0,
+            'cal': 1,
+            'mdl': 2,
+            'imet': 3
+        }
+
+        self.flag_data(df)
     
+    def flag_data(self ,df):
+        """
+        Flags data and updates session state to repserve the df
+        """
+
+        df.loc[self.start_time:self.end_time, 'Audit Flag'] = self.type_to_flag[self.type]
+
+        # update session state
+        self.update_session_state(df)
+
+
+
     def update_session_state(self, df):
         """
         Updates the session state of the display data so that it persists past refreshes.

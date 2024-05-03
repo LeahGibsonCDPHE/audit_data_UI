@@ -24,10 +24,13 @@ if uploaded_files:
 
     # once files are merged, show dataframe
     st.write('Raw Audit Data')
-    displayed_audit_data = st.dataframe(files.display_data, width=800, height=400, use_container_width=True)
+    displayed_audit_data = st.dataframe(files.session_state_data, width=800, height=400, use_container_width=True)
 
     # audit type tabs
     zero_air_tab, calibration_tab, mdl_tab, imet_tab, gps_tab = st.tabs(["Zero Air Audit", "Calibration Audit", "MDL Check", "iMet Audit", "GPS Check"])
+
+    # df that gets actively edited throughout
+    audit_df = files.session_state_data
 
     # display for zero air tab
     with zero_air_tab:
@@ -53,7 +56,7 @@ if uploaded_files:
             # if all passes, continue with analysis
             if start_check and end_check and compound_check:
                 # proceed with analysis
-                files.display_data = ZeroAirAnalysis(start_time, end_time, files.audit_date, compound, files.analysis_data, files.display_data)
+                ZeroAirAnalysis(start_time, end_time, files.audit_date, compound, files.analysis_data, audit_df)
 
 
 
@@ -94,8 +97,7 @@ if uploaded_files:
             # if all passes, continue with analysis
             if start_check and end_check and compound_check:
                 # proceed with analysis
-                print('proceeding with analysis')
-                ############## CALIBRATION ANALYSIS HERE #################
+                CalGasAnalysis(start_time, end_time, files.audit_date, compound, gas_concentration, files.analysis_data, audit_df)
 
             else:
                 if not start_check:
@@ -137,7 +139,7 @@ if uploaded_files:
             if spike_start_check and spike_end_check and blank_start_check and blank_end_check and compound_check:
                 # proceed with analysis
                 print('proceeding with analysis')
-                ############## MDL ANALYSIS HERE #################
+                MDLCheckAnalysis(spike_start_time, spike_end_time, blank_start_time, blank_end_time, files.audit_date, compound, files.analysis_data, audit_df)
 
             else:
                 if not spike_start_check:
@@ -197,14 +199,14 @@ if uploaded_files:
     # bottom buttons
     finish = AnalysisFinisher()
    
-    download_button = st.download_button('Download CSV', *finish.download_csv(files.display_data), key='download-csv')
+    download_button = st.download_button('Download CSV', *finish.download_csv(st.session_state.dataframe), key='download-csv')
 
-    st.write('Press the Finish Analsyis button to end the analysis of this data.')
+    # st.write('Press the Finish Analsyis button to end the analysis of this data.')
 
-    end_button = st.button('Finish Analysis')
-    if end_button:
-        # end the analysis
-        files.end_analysis(finish.display_data)
+    # end_button = st.button('Finish Analysis')
+    # if end_button:
+    #     # end the analysis
+    #     files.end_analysis(finish.display_data)
 
 
 

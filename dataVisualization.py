@@ -29,26 +29,40 @@ class DataVisualization:
         ax.plot(full_dataset, color='black', linestyle='-')
         ax.plot(analysis_series, color='orange', linestyle='None', marker='^', label='Selected Audit Window')
         ax.plot(ideal_data, color='green', linestyle='None', marker='^', label='Ideal Analysis Data')
+        ax.set_ylabel('ppb')
         ax.legend()
         st.pyplot(fig)
     
-    def histogram_plot(self, analysis_series, ideal_series):
+    def scatter_selection(self, full_dataset, spikes, blanks):
+        """
+        For plotting MDL data
+
+        Inputs:
+        - full_dataset: column of data from the entire audit dataset
+        - spikes: mdl data of spikes
+        - blanks: series of blanks
+        """
+
+        fig, ax = plt.subplots()
+        ax.plot(full_dataset, color='black', linestyle='-')
+        ax.plot(spikes, color='blue', linestyle='None', marker='o', label='Spike Data')
+        ax.plot(blanks, color='orange', linestyle='None', marker='o', label='Blank Data')
+        ax.set_ylabel('ppb')
+        ax.legend()
+        st.pyplot(fig)
+    
+    def histogram_plot(self, ideal_data_series, mean):
         """
         Produces a histogram of data in the analysis window vs the ideal window
 
         Inputs:
-        - analysis_aeries: pandas series of the full analysis window
         - ideal_series: pandas series of the delected ideal series subset
+        - mean: mean of the provided data series
         """
 
-        # # plot distributions of data with stats
-        # plt.figure(figsize=(8,6))
-        # sns.histplot(audit_series, kde=True, stat="density", element="step", color='blue', bins=25, label='Selected Audit Window')
-        # sns.histplot(audit_series_no_outliers, kde=True, stat="density", element="step", color='orange', bins=25, label='Selected Audit Window (No Outliers)')
-        # sns.histplot(ideal_data_series, kde=True, stat="density", element="step", color='green', bins=25, label='Ideal Analysis Data')
-        # plt.legend()
-        # plt.title(f'{compound}')
-        # plt.ylabel('Frequency')
-        # plt.axvline(audit_mean, color='blue' , linestyle='--')
-        # plt.axvline(no_outliers_mean, color='orange', linestyle='--')
-        # plt.axvline(ideal_mean, color='green', linestyle='--')    
+        # plot distributions of data with stats
+        fig = plt.figure(figsize=(8,6))
+        sns.histplot(ideal_data_series, kde=True, stat="density", element="step", color='green', bins=25, label='Ideal Analysis Data')
+        plt.ylabel('Frequency')
+        plt.axvline(mean, color='green', linestyle='--')    
+        st.pyplot(fig)
