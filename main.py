@@ -138,7 +138,6 @@ if uploaded_files:
             # if all passes, continue with analysis
             if spike_start_check and spike_end_check and blank_start_check and blank_end_check and compound_check:
                 # proceed with analysis
-                print('proceeding with analysis')
                 MDLCheckAnalysis(spike_start_time, spike_end_time, blank_start_time, blank_end_time, files.audit_date, compound, files.analysis_data, audit_df)
 
             else:
@@ -166,7 +165,10 @@ if uploaded_files:
         error_end = imet_form.empty()
 
         # upload for kestrel data   
-        uploaded_files = imet_form.file_uploader("Upload met data for comparison", accept_multiple_files=True)
+        uploaded_file = imet_form.file_uploader("Upload met data for comparison", type=['csv'], key='uploaded_file')
+        if uploaded_file:
+            # read in the uploaded file
+            kestrel_df = pd.read_csv(uploaded_file, skiprows=[0,1,2,4])
 
         submit_button = imet_form.form_submit_button('Analyze')
 
@@ -180,7 +182,7 @@ if uploaded_files:
             if start_check and end_check:
                 # proceed with analysis
                 print('proceeding with analysis')
-                ############## imet ANALYSIS HERE #################
+                iMetAnalysis(start_time, end_time, files.audit_date, kestrel_df, files.analysis_data, audit_df)
 
             else:
                 if not start_check:
@@ -193,7 +195,10 @@ if uploaded_files:
     with gps_tab:
         st.header("GPS Check Analysis")
 
-        ### GPS ANALYSIS HERE ####
+        analyze_button = st.button('View GPS Analysis')
+
+        if analyze_button:
+            GPSCheck(files.analysis_data)
 
 
     # bottom buttons

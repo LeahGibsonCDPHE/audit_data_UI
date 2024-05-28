@@ -100,9 +100,12 @@ class ProcessRawFiles:
         """
         
         # clean data
-        df.loc[df['GSU_PUMP_ON monitor []'] == 0, 'Benzene C6H6+'] = np.nan
-        df.loc[df['GSU_VALVE_PR1 monitor []'] == 1, 'Benzene C6H6+'] = np.nan
-        df.loc[df['GSU_VALVE_PR2 monitor []'] == 1, 'Benzene C6H6+'] = np.nan
+        if 'GSU_PUMP_ON monitor []' in df.columns: 
+            df.loc[df['GSU_PUMP_ON monitor []'] == 0, 'Benzene C6H6+'] = np.nan
+        if 'GSU_VALVE_PR1 monitor []' in df.columns:
+            df.loc[df['GSU_VALVE_PR1 monitor []'] == 1, 'Benzene C6H6+'] = np.nan
+        if 'GSU_VALVE_PR2 monitor []' in df.columns:
+            df.loc[df['GSU_VALVE_PR2 monitor []'] == 1, 'Benzene C6H6+'] = np.nan
 
         return df
 
@@ -111,22 +114,40 @@ class ProcessRawFiles:
         Adds datetime column to data
         """
 
-        # sort by UTC time
-        df = df.sort_values(by='UTC Time')
+        if 'UTC Time' in df.columns:
 
-        # change type of UTC columns from floats -> ints -> strings
-        df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
-        df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
+            # sort by UTC time
+            df = df.sort_values(by='UTC Time')
 
-        # convert times to datetimes (in UTC for now)
-        df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
+            # change type of UTC columns from floats -> ints -> strings
+            df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
+            df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
 
-        # make DateTime column the index
-        df.set_index(['DateTime'], inplace=True)
+            # convert times to datetimes (in UTC for now)
+            df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
 
-        # convert times to local mountain time
-        mountain_time = pytz.timezone('America/Denver')
-        df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
+            # make DateTime column the index
+            df.set_index(['DateTime'], inplace=True)
+
+            # convert times to local mountain time
+            mountain_time = pytz.timezone('America/Denver')
+            df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
+        
+        elif 'time' in df.columns:
+
+            # convert to datetimes and sort
+            df['DateTime'] = pd.to_datetime(df['time'])
+            df = df.sort_values(by='DateTime')
+
+            # drop time column
+            df.drop('time', axis=1, inplace=True)
+
+            # make Datetimes col the index 
+            df.set_index(['DateTime'], inplace=True)
+
+            # set timesone to local    
+            mountain_time = pytz.timezone('America/Denver')
+            df.index = df.index.tz_localize('America/Denver').tz_convert(mountain_time)
 
         return df
     
@@ -404,7 +425,8 @@ class DataAnalysisTools:
         audit_stats['Max % Recovery'] = (analysis_series_stat['Maximum'] / cal_gas_conc)*100
         audit_stats['Min % Recovery'] = (analysis_series_stat['Minimum'] / cal_gas_conc)*100
         audit_stats['Percent Difference'] = (np.abs(analysis_series_stat['Mean'] - cal_gas_conc)/cal_gas_conc)*100
-        audit_stats['Range % Difference'] = ((analysis_series_stat['Maximum'] - analysis_series_stat['Minimum'])/np.average(analysis_series_stat['Maximum'], analysis_series_stat['Minimum'])) * 100
+        avg_val = (analysis_series_stat['Maximum'] + analysis_series_stat['Minimum'])/2
+        audit_stats['Range % Difference'] = ((analysis_series_stat['Maximum'] - analysis_series_stat['Minimum'])/avg_val) * 100
 
         audit_stats_df = pd.DataFrame.from_dict(audit_stats, orient='index').T
         # display
@@ -422,6 +444,54 @@ class DataAnalysisTools:
     
     def _func(self, x, a, b, c):
         return a*(1/(x+b))+c
+    
+    def met_difference_computations(self, analysis_data, kestrel_data):
+        """
+        Computes the absolute difference between the two data streams when their times overlap.
+
+        Retuns: displays a df where the columns are the met variables and the rows are the stats
+        """
+
+        imet_headers = ['Temperature (\u00b0C)', 'Corrected Wind Direction (\u00b0)', 'Pressure (hPa)', 
+                        'Relative Humidity (%)', 'Corrected Wind Speed (m/s)']
+        
+        kestrel_headers = ['Temperature', 'Compass True Direction', 'Barometric Pressure', 'Relative Humidity', 'Wind Speed'] # units: Temp: F, Pressure: inHg, Wind Speed: mph, 
+
+
+        titles = ['Temperature (\u00b0C)', 'Wind Dir (\u00b0)', 'Pressure (mmHg)', 'RH (%)', 'Wind Speed (m/s)']
+
+        stats_df = pd.DataFrame(columns=titles, index=['Minimum', 'Median', 'Maximum', 'Mean'])
+        display_df = pd.DataFrame()
+        # Align the DataFrames based on datetime indices
+        for i, (imet_header, kestrel_header) in enumerate(zip(imet_headers, kestrel_headers)):
+            # Align the dataframes based on the datetime index
+            df = pd.merge(analysis_data[imet_header], kestrel_data[kestrel_header], how='inner', left_index=True, right_index=True)
+            # Calculate the absolute difference between the two data streams
+            diff = 100 * abs(df[imet_header] - df[kestrel_header])/df[imet_header]
+
+            # add to display df
+            display_df['iMet '+titles[i]] = df[imet_header]
+            display_df['Kestrel '+titles[i]] = df[kestrel_header]
+
+
+            # fill the stats df
+            stats_df.loc['Minimum', titles[i]] = diff.min()
+            stats_df.loc['Median', titles[i]] = diff.median()
+            stats_df.loc['Maximum', titles[i]] = diff.max()
+            stats_df.loc['Mean', titles[i]] = diff.mean()
+        
+        display_df.reset_index(inplace=True)
+        # rename index 
+        display_df.rename(columns={'index': 'DateTime'}, inplace=True)
+        display_df.set_index('DateTime', inplace=True)
+        st.write('Met Data')
+        st.dataframe(display_df, width=800, height=400, use_container_width=True)
+
+        st.write('Percent Difference')
+        st.dataframe(stats_df, use_container_width=True)
+        
+
+
     
 
 
@@ -444,6 +514,8 @@ class FlagData:
         - end_time: end time of the data to be flagged
         - type: pe of audit/check so the data is properly flagged: 'zero', 'cal', 'mdl', 'met'
         """
+
+        # convert start and end times to time aware
 
         self.start_time = start_time
         self.end_time = end_time

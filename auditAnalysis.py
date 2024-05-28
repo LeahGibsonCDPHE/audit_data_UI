@@ -5,6 +5,9 @@ Code for the analysis of the audit data
 
 import streamlit as st
 import numpy as np
+import pandas as pd
+import geopandas as gpd
+from pyproj import CRS
 from dataHandling import DataAnalysisTools, FlagData
 from dataVisualization import DataVisualization
 
@@ -233,44 +236,90 @@ class MDLCheckAnalysis:
 
 
 
- 
-
-    
-    # def _linear_interpolation(self, x0):
-    #     """
-    #     Does linear interpolation for t-statistic
-
-    #     Inputs:
-    #     - x0: number of datapoints
-    #     """
-
-    #     x_values = self.epa_t_statistic['n']
-    #     y_values = self.epa_t_statistic['t']
-
-    #     # Find the index of the nearest x value in the list
-    #     i = min(range(len(x_values)), key=lambda i: abs(x_values[i] - x0))
-        
-    #     # Perform linear interpolation
-    #     if x_values[i] == x0:
-    #         y_o = y_values[i]
-    #     else:
-    #         slope = (y_values[i+1] - y_values[i]) / (x_values[i+1] - x_values[i])
-    #         y0 = y_values[i] + slope * (x0 - x_values[i])
-        
-    #     return y0
-
-    def _func(x,a,b,c):
-        return a*(1/(x+b))+c
-
 
 
 class iMetAnalysis:
 
-    def __init__(self):
-        pass
+    def __init__(self, start_time, end_time, audit_date, kestrel_data, analysis_data, display_data):
+        """
+        Inputs:
+        - start_time: start time 
+        - end_time: end time
+        - audit_date: 'yyyymmdd'
+        - upload: kestral data upload
+        - analysis_data: dataframe of data to be analyzed
+        - display_data: data to be flagged
+        """
+
+        self.analysis_tools = DataAnalysisTools()
+        self.plot = DataVisualization()
+
+        # convert times to datetimes
+        self.start_time = self.analysis_tools.localize_time_inputs(start_time, audit_date) 
+        self.end_time = self.analysis_tools.localize_time_inputs(end_time, audit_date) 
+
+        # flag the display data (and update state)
+        FlagData(display_data, self.start_time, self.end_time, type='imet')
+
+        self.imet_analysis(analysis_data, kestrel_data)
+    
+    def imet_analysis(self, analysis_data, kestrel_data):
+        """
+        Performs the analysis
+        """
+        
+        # shorted df to the timeframe to analyze
+        analysis_data = analysis_data[(analysis_data.index >= self.start_time) & (analysis_data.index <= self.end_time)]
+
+        kestrel_data['FORMATTED DATE_TIME'] = pd.to_datetime(kestrel_data['FORMATTED DATE_TIME']).dt.tz_localize('America/Denver')
+        # set index to be datetime column
+        kestrel_data = kestrel_data.set_index('FORMATTED DATE_TIME')
+
+        # conver data to preoper units
+        kestrel_data['Temperature'] = (kestrel_data['Temperature'] - 32) * (5/9) # F -> C
+        kestrel_data['Barometric Pressure'] = kestrel_data['Barometric Pressure'] * 25.3 # inHg -> mmHg
+        kestrel_data['Wind Speed'] = kestrel_data['Wind Speed'] * (1609.34 / 3600)
+        analysis_data['Pressure (hPa)'] = analysis_data['Pressure (hPa)'] * 0.7500637554 # hPa -> mmHg
+
+        # plot timeseries for all variables
+        self.plot.met_plot(analysis_data, kestrel_data)
+
+        # compute the mean, min, and max of the absolute differences and display table
+        self.analysis_tools.met_difference_computations(analysis_data, kestrel_data)
+
+        
+
+
+
+
 
 class GPSCheck:
     
-    def __init__(self):
-        pass
+    def __init__(self, analysis_data):
+        """
+        Plots the GPS locations for the entire audit
+        """
+
+        self.plot = DataVisualization()
+
+        # just saves GPS related columns
+        df = analysis_data[['GPS Number Of Satellites', 'GPS Latitude (\u00b0N)', 'GPS Longitude (\u00b0E)']]
+
+        self.gps_analysis(df)
+    
+    def gps_analysis(self, df):
+        """
+        Performs GPS analysis
+        """
+
+        # convert into geopandas df
+        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['GPS Longitude (\u00b0E)'], df['GPS Latitude (\u00b0N)']), crs=CRS('EPSG:4326'))
+        gdf_wm = gdf.to_crs('EPSG:3857')
+
+        self.plot.gps_map(df, gdf_wm)
+
+
+
+       
+           
 

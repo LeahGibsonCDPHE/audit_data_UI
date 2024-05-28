@@ -5,6 +5,21 @@ Code for making plots in streamlit
 import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
+import contextily as cx
+import geopandas as gpd
+from matplotlib_scalebar.scalebar import ScaleBar
+from pyproj import CRS, Proj, Transformer, transform
+import mpld3
+
+# Customize fonts and sizes
+plt.rcParams.update({
+    'font.size': 14,
+    'axes.titlesize': 14,
+    'axes.labelsize': 14,
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
+    'legend.fontsize': 12
+})
 
 class DataVisualization:
     """
@@ -25,13 +40,17 @@ class DataVisualization:
         """
 
         # plot the timeseries with color selection
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(7,5))
         ax.plot(full_dataset, color='black', linestyle='-')
         ax.plot(analysis_series, color='orange', linestyle='None', marker='^', label='Selected Audit Window')
         ax.plot(ideal_data, color='green', linestyle='None', marker='^', label='Ideal Analysis Data')
         ax.set_ylabel('ppb')
         ax.legend()
-        st.pyplot(fig)
+        fig.tight_layout()
+
+        fig_html = mpld3.fig_to_html(fig)
+        st.components.v1.html(fig_html, height=600)
+        #st.pyplot(fig)
     
     def scatter_selection(self, full_dataset, spikes, blanks):
         """
@@ -49,7 +68,11 @@ class DataVisualization:
         ax.plot(blanks, color='orange', linestyle='None', marker='o', label='Blank Data')
         ax.set_ylabel('ppb')
         ax.legend()
-        st.pyplot(fig)
+        fig.tight_layout()
+
+        fig_html = mpld3.fig_to_html(fig)
+        st.components.v1.html(fig_html, height=600)
+        #st.pyplot(fig)
     
     def histogram_plot(self, ideal_data_series, mean):
         """
@@ -64,5 +87,66 @@ class DataVisualization:
         fig = plt.figure(figsize=(8,6))
         sns.histplot(ideal_data_series, kde=True, stat="density", element="step", color='green', bins=25, label='Ideal Analysis Data')
         plt.ylabel('Frequency')
-        plt.axvline(mean, color='green', linestyle='--')    
+        plt.axvline(mean, color='green', linestyle='--')
+
+        fig.tight_layout()
+
+        fig_html = mpld3.fig_to_html(fig)
+        st.components.v1.html(fig_html, height=600)    
+        # st.pyplot(fig)
+
+    def met_plot(self, analysis_data, kestrel_data):
+        """
+        Plots the imet and kestrel data
+        """
+
+        imet_headers = ['Temperature (\u00b0C)', 'Corrected Wind Direction (\u00b0)', 'Pressure (hPa)', 
+                        'Relative Humidity (%)', 'Corrected Wind Speed (m/s)']
+        
+        kestrel_headers = ['Temperature', 'Compass True Direction', 'Barometric Pressure', 'Relative Humidity', 'Wind Speed'] # units: Temp: F, Pressure: inHg, Wind Speed: mph, 
+
+
+        titles = ['\u00b0C', 'Wind Dir (\u00b0)', 'mmHg', 'RH (%)', 'Wind (m/s)']
+
+        fig, axs = plt.subplots(nrows=5, sharex=True)
+        for i, ax in enumerate(axs):
+            ax.plot(analysis_data[imet_headers[i]], label='iMet', color='blue')
+            ax.plot(kestrel_data[kestrel_headers[i]], label='Kestrel', color='orange')
+            ax.set_ylabel(titles[i])
+        ax.tick_params(axis='x', rotation=45)
+        ax.legend()
+        plt.tight_layout()
+
+        fig.tight_layout()
+
+        fig_html = mpld3.fig_to_html(fig)
+        st.components.v1.html(fig_html, height=600)
+        #st.pyplot(fig)
+    
+    def gps_map(self, df, gdf):
+        """
+        plots gps data
+        """
+
+        fig, ax = plt.subplots()
+        ax.plot(df['GPS Number Of Satellites'])
         st.pyplot(fig)
+
+        # plot
+        ax = gdf.plot(markersize=5, column=df['GPS Number Of Satellites'], cmap='viridis', legend=True)
+        cx.add_basemap(ax, zoom=15, source=cx.providers.Esri.WorldImagery)
+        
+
+        # Add scale bar
+        scalebar = ScaleBar(1, location='lower right')  # 1 pixel = 1 unit (you can adjust this)
+        ax.add_artist(scalebar)
+        ax.set_axis_off()
+
+        # Label the legend
+        ax.legend(title='GPS Number Of Satellites')
+
+        fig.tight_layout()
+
+        fig_html = mpld3.fig_to_html(fig)
+        st.components.v1.html(fig_html, height=600)
+        #st.pyplot(ax.figure)
