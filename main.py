@@ -23,8 +23,15 @@ if uploaded_files:
     files = ProcessRawFiles(uploaded_files)
 
     # once files are merged, show dataframe
-    st.write('Raw Audit Data')
+    st.write('Uploaded Audit Data')
+   
     displayed_audit_data = st.dataframe(files.session_state_data, width=800, height=400, use_container_width=True)
+
+    st.write('Flag Meanings: 0 = audit zero, 1 = cal gas, 2 = mdl check, 3 = imet')
+    # download button
+    finish = AnalysisFinisher()
+
+    download_button = st.download_button('Download CSV', *finish.download_csv(st.session_state.dataframe), key='download-csv')
 
     # audit type tabs
     zero_air_tab, calibration_tab, mdl_tab, imet_tab, gps_tab = st.tabs(["Zero Air Audit", "Calibration Audit", "MDL Check", "iMet Audit", "GPS Check"])
@@ -83,7 +90,7 @@ if uploaded_files:
         end_error = calibration_form.empty()
         compound = calibration_form.text_input('Compound Name (as it appears in the data)')
         compound_error = calibration_form.empty()
-        gas_concentration = calibration_form.number_input('Calibration Gas Concentration', min_value=0)
+        gas_concentration = calibration_form.number_input('Calibration Gas Concentration', step=0.01, min_value=0.00)
         gas_error = calibration_form.empty()
 
         submit_button = calibration_form.form_submit_button('Analyze')
@@ -201,10 +208,7 @@ if uploaded_files:
             GPSCheck(files.analysis_data)
 
 
-    # bottom buttons
-    finish = AnalysisFinisher()
-   
-    download_button = st.download_button('Download CSV', *finish.download_csv(st.session_state.dataframe), key='download-csv')
+
 
     # st.write('Press the Finish Analsyis button to end the analysis of this data.')
 

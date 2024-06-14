@@ -13,11 +13,11 @@ import mpld3
 
 # Customize fonts and sizes
 plt.rcParams.update({
-    'font.size': 14,
-    'axes.titlesize': 14,
-    'axes.labelsize': 14,
-    'xtick.labelsize': 14,
-    'ytick.labelsize': 14,
+    'font.size': 12,
+    'axes.titlesize': 12,
+    'axes.labelsize': 12,
+    'xtick.labelsize': 12,
+    'ytick.labelsize': 12,
     'legend.fontsize': 12
 })
 
@@ -40,19 +40,24 @@ class DataVisualization:
         """
 
         # plot the timeseries with color selection
-        fig, ax = plt.subplots(figsize=(7,5))
-        ax.plot(full_dataset, color='black', linestyle='-')
-        ax.plot(analysis_series, color='orange', linestyle='None', marker='^', label='Selected Audit Window')
-        ax.plot(ideal_data, color='green', linestyle='None', marker='^', label='Ideal Analysis Data')
-        ax.set_ylabel('ppb')
-        ax.legend()
+        fig, ax = plt.subplots(nrows=2, figsize=(7,5))
+
+        ax[0].plot(analysis_series, color='orange', label='Selected Audit Window')
+        ax[0].plot(ideal_data, color='green', linestyle='None', marker='^', label='Ideal Analysis Data')
+        ax[0].legend()
+        ax[0].set_ylabel('ppb')
+
+        ax[1].plot(full_dataset, color='black', linestyle='-')
+        ax[1].plot(ideal_data, color='green', linestyle='None', marker='^')
+        ax[1].set_ylabel('ppb')
+        
         fig.tight_layout()
 
-        fig_html = mpld3.fig_to_html(fig)
-        st.components.v1.html(fig_html, height=600)
-        #st.pyplot(fig)
+        #fig_html = mpld3.fig_to_html(fig)
+        #st.components.v1.html(fig_html, height=600)
+        st.pyplot(fig)
     
-    def scatter_selection(self, full_dataset, spikes, blanks):
+    def scatter_selection(self, full_dataset, spikes, blanks, analysis_spike, analysis_blank):
         """
         For plotting MDL data
 
@@ -62,17 +67,27 @@ class DataVisualization:
         - blanks: series of blanks
         """
 
-        fig, ax = plt.subplots()
-        ax.plot(full_dataset, color='black', linestyle='-')
-        ax.plot(spikes, color='blue', linestyle='None', marker='o', label='Spike Data')
-        ax.plot(blanks, color='orange', linestyle='None', marker='o', label='Blank Data')
-        ax.set_ylabel('ppb')
-        ax.legend()
+        fig, ax = plt.subplots(nrows=3, figsize=(7,7))
+        ax[0].plot(spikes, color='blue', marker='o')
+        ax[0].plot(analysis_spike, linestyle='None', marker='^', color='green')
+        ax[0].set_title('Spikes')
+        ax[0].set_ylabel('ppb')
+
+        ax[1].plot(blanks, color='orange', marker='o')
+        ax[1].plot(analysis_blank, linestyle='None', marker='^', color='green')
+        ax[1].set_title('Blanks')
+        ax[1].set_ylabel('ppb')
+
+        ax[2].plot(full_dataset, color='black', linestyle='-')
+        ax[2].plot(spikes, color='blue', linestyle='None', marker='o', label='Spike Data')
+        ax[2].plot(blanks, color='orange', linestyle='None', marker='o', label='Blank Data')
+        ax[2].set_ylabel('ppb')
+        ax[2].legend()
         fig.tight_layout()
 
-        fig_html = mpld3.fig_to_html(fig)
-        st.components.v1.html(fig_html, height=600)
-        #st.pyplot(fig)
+        #fig_html = mpld3.fig_to_html(fig)
+        #st.components.v1.html(fig_html, height=600)
+        st.pyplot(fig)
     
     def histogram_plot(self, ideal_data_series, mean):
         """
@@ -91,9 +106,9 @@ class DataVisualization:
 
         fig.tight_layout()
 
-        fig_html = mpld3.fig_to_html(fig)
-        st.components.v1.html(fig_html, height=600)    
-        # st.pyplot(fig)
+        #fig_html = mpld3.fig_to_html(fig)
+        #st.components.v1.html(fig_html, height=600)    
+        st.pyplot(fig)
 
     def met_plot(self, analysis_data, kestrel_data):
         """
@@ -119,9 +134,9 @@ class DataVisualization:
 
         fig.tight_layout()
 
-        fig_html = mpld3.fig_to_html(fig)
-        st.components.v1.html(fig_html, height=600)
-        #st.pyplot(fig)
+        #fig_html = mpld3.fig_to_html(fig)
+        #st.components.v1.html(fig_html, height=600)
+        st.pyplot(fig)
     
     def gps_map(self, df, gdf):
         """
@@ -147,6 +162,6 @@ class DataVisualization:
 
         fig.tight_layout()
 
-        fig_html = mpld3.fig_to_html(fig)
-        st.components.v1.html(fig_html, height=600)
-        #st.pyplot(ax.figure)
+        #fig_html = mpld3.fig_to_html(fig)
+        #st.components.v1.html(fig_html, height=600)
+        st.pyplot(ax.figure)

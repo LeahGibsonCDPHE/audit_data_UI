@@ -44,6 +44,12 @@ class ProcessRawFiles:
         # preserve display_data after button clicks
         if 'dataframe' not in st.session_state:
             st.session_state.dataframe = self.display_data  
+        else: # update if user adds/removes files
+            old_flag_col = st.session_state.dataframe['Audit Flag']
+            self.display_data.update(old_flag_col)
+            st.session_state.dataframe = self.display_data
+
+
         
         self.session_state_data = st.session_state.dataframe
         
@@ -67,7 +73,10 @@ class ProcessRawFiles:
         merged_df = pd.DataFrame()
         for file in list_of_uploaded_files:
             print(f'loading {file.name}')
-            audit_date = file.name[0:8]
+            if file.name.endswith('.dat'):
+                audit_date = file.name[10:18]
+            else:
+                audit_date = file.name[0:8]
 
             # read file into pandas df
             if file.size > 0:
@@ -76,7 +85,10 @@ class ProcessRawFiles:
                     f.write(file.read())
                 with open(file.name, 'rb') as f:
                     result = chardet.detect(f.read())
-                df = pd.read_csv(file.name, encoding=result['encoding'], dtype={'UTC Time': float})
+                if file.name.endswith('.dat'):
+                    df = pd.read_csv(file.name, delim_whitespace=True, encoding=result['encoding'])
+                else:
+                    df = pd.read_csv(file.name, encoding=result['encoding'], dtype={'UTC Time': float})
 
                 merged_df = pd.concat([merged_df, df], ignore_index=True)
         
@@ -106,6 +118,10 @@ class ProcessRawFiles:
             df.loc[df['GSU_VALVE_PR1 monitor []'] == 1, 'Benzene C6H6+'] = np.nan
         if 'GSU_VALVE_PR2 monitor []' in df.columns:
             df.loc[df['GSU_VALVE_PR2 monitor []'] == 1, 'Benzene C6H6+'] = np.nan
+        
+        # convert HCN to ppb
+        if 'HCNI-' in df.columns:
+            df['HCNI-'] = df['HCNI-'] * 1e-3
 
         return df
 
@@ -116,9 +132,6 @@ class ProcessRawFiles:
 
         if 'UTC Time' in df.columns:
 
-            # sort by UTC time
-            df = df.sort_values(by='UTC Time')
-
             # change type of UTC columns from floats -> ints -> strings
             df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
             df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
@@ -126,8 +139,12 @@ class ProcessRawFiles:
             # convert times to datetimes (in UTC for now)
             df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
 
+            # sort so datetimes are in order
+            df = df.sort_values(by='DateTime')
+
             # make DateTime column the index
             df.set_index(['DateTime'], inplace=True)
+
 
             # convert times to local mountain time
             mountain_time = pytz.timezone('America/Denver')
@@ -148,6 +165,18 @@ class ProcessRawFiles:
             # set timesone to local    
             mountain_time = pytz.timezone('America/Denver')
             df.index = df.index.tz_localize('America/Denver').tz_convert(mountain_time)
+        
+        elif 'DATE' in df.columns:
+
+            # Combine the "DATE" and rounded "TIME" columns
+            df['DateTime'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'].astype(str))
+
+            # make Datetimes col the index 
+            df.set_index(['DateTime'], inplace=True)
+
+            # set timesone to local    
+            mountain_time = pytz.timezone('America/Denver')
+            df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
 
         return df
     
@@ -203,6 +232,7 @@ class CheckInputs:
         """
 
         headers = data.columns.tolist()
+        print(headers)
  
 
         if compound in headers:
@@ -346,7 +376,7 @@ class DataAnalysisTools:
 
             # # minimum distance between removed point and points in cluster
             #between_cluster_distance = np.nanmin([abs(remove_point - p) for p in removed_series.values])
-            print('the distance between clusters is', between_cluster_distance)
+            #print('the distance between clusters is', between_cluster_distance)
 
             # compute
             sil_score = (between_cluster_distance - avg_within_cluster_distance)/max(between_cluster_distance, avg_within_cluster_distance)
@@ -400,11 +430,11 @@ class DataAnalysisTools:
 
         stats = {}
 
-        stats['Minimum'] = analysis_series.min()
-        stats['Median'] = analysis_series.median()
-        stats['Maximum'] = analysis_series.max()
-        stats['Mean'] = analysis_series.mean()
-        stats['SD'] = analysis_series.std()
+        stats['Minimum'] = round(analysis_series.min(),3)
+        stats['Median'] = round(analysis_series.median(),3)
+        stats['Maximum'] = round(analysis_series.max(),3)
+        stats['Mean'] = round(analysis_series.mean(),3)
+        stats['SD'] = round(analysis_series.std(),3)
 
         stats_df = pd.DataFrame.from_dict(stats, orient='index').T
 
@@ -421,12 +451,12 @@ class DataAnalysisTools:
 
         audit_stats = {}
 
-        audit_stats['Percent Recovery'] = (analysis_series_stat['Mean'] / cal_gas_conc)*100
-        audit_stats['Max % Recovery'] = (analysis_series_stat['Maximum'] / cal_gas_conc)*100
-        audit_stats['Min % Recovery'] = (analysis_series_stat['Minimum'] / cal_gas_conc)*100
-        audit_stats['Percent Difference'] = (np.abs(analysis_series_stat['Mean'] - cal_gas_conc)/cal_gas_conc)*100
+        audit_stats['Percent Recovery'] = round((analysis_series_stat['Mean'] / cal_gas_conc)*100,3)
+        audit_stats['Max % Recovery'] = round((analysis_series_stat['Maximum'] / cal_gas_conc)*100,3)
+        audit_stats['Min % Recovery'] = round((analysis_series_stat['Minimum'] / cal_gas_conc)*100,3)
+        audit_stats['Percent Difference'] = round((np.abs(analysis_series_stat['Mean'] - cal_gas_conc)/cal_gas_conc)*100,3)
         avg_val = (analysis_series_stat['Maximum'] + analysis_series_stat['Minimum'])/2
-        audit_stats['Range % Difference'] = ((analysis_series_stat['Maximum'] - analysis_series_stat['Minimum'])/avg_val) * 100
+        audit_stats['Range % Difference'] = round(((analysis_series_stat['Maximum'] - analysis_series_stat['Minimum'])/avg_val) * 100,3)
 
         audit_stats_df = pd.DataFrame.from_dict(audit_stats, orient='index').T
         # display
@@ -566,7 +596,7 @@ class AnalysisFinisher:
         - df: display df to save
         """
 
-        download_csv = df.to_csv(index=False).encode('utf-8')
+        download_csv = df.to_csv(index=True).encode('utf-8')
 
         current_date = datetime.now().strftime("%Y-%m-%d")
         filename = f'{current_date}_audit_analysis.csv'

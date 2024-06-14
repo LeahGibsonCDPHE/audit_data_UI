@@ -7,6 +7,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import scipy.stats as stats
 from pyproj import CRS
 from dataHandling import DataAnalysisTools, FlagData
 from dataVisualization import DataVisualization
@@ -106,6 +107,7 @@ class CalGasAnalysis:
         """
         Performs analysis
         """
+
         
         # shorted df to the timeframe to analyze
         analysis_series = self.analysis_tools.shorten_to_analysis(analysis_data, self.start_time, self.end_time, self.compound)
@@ -173,7 +175,7 @@ class MDLCheckAnalysis:
 
 
         # flag the display data (and update state)
-        #FlagData(display_data, self.start_time, self.end_time, type='mdl') 
+        FlagData(display_data, self.spike_start, self.spike_end, type='mdl') 
 
         self.mdl_analysis(analysis_data)
     
@@ -187,22 +189,23 @@ class MDLCheckAnalysis:
         # find ideal grouping of points
         spike_data = self.analysis_tools.find_ideal_grouping(spike_series)
 
+
         # shorted df to the timeframe to analyze
         blank_series = self.analysis_tools.shorten_to_analysis(analysis_data, self.blank_start, self.blank_end, self.compound)
         # find ideal grouping of points
         blank_data = self.analysis_tools.find_ideal_grouping(blank_series)
 
         # plot data
-        self.plot.scatter_selection(analysis_data[self.compound], spike_series, blank_series)
+        self.plot.scatter_selection(analysis_data[self.compound], spike_series, blank_series, spike_data, blank_data)
 
-        st.write('Spike')
+        st.markdown('**Spike**')
 
         # compute stats for both and display
-        spike_stats = self.analysis_tools.compute_basic_stats(spike_series)
-        self.analysis_tools.display_table(spike_series)
+        spike_stats = self.analysis_tools.compute_basic_stats(spike_data)
+        self.analysis_tools.display_table(spike_data)
 
 
-        st.write('Blank')
+        st.markdown('**Blank**')
 
         blank_stats = self.analysis_tools.compute_basic_stats(blank_data)
         self.analysis_tools.display_table(blank_data)
@@ -211,25 +214,37 @@ class MDLCheckAnalysis:
 
         # compute MDL
 
-        st.markdown('**MDL$_s$ Parameters**')
+        st.markdown('**MDL$_s$ Computation**')
         number_points = len(spike_data)
-        t_stat = self.analysis_tools._func(number_points, *self.popt)
+        st.write(f'Number of Points =', number_points)
+        t_stat = round(stats.t.ppf(0.99, number_points-1),3)
         st.write(f't-statistic = {t_stat}')
         sd = spike_stats['SD']
         st.write(f'SD = {sd}')
         mdl_s = t_stat * sd
         st.write(f'MDL$_s$ = {mdl_s}')
 
-        st.markdown('**MDL$_b$ Parameters**')
-        x_bar = np.max([blank_stats['Mean'], 0])
-        st.write(f'Mean = {x_bar}')
+
+        st.markdown('**MDL$_b$ Computation**')
         number_points = len(blank_data)
-        t_stat = self.analysis_tools._func(number_points, *self.popt)
-        st.write(f't-statistic = {t_stat}')
-        sd = blank_stats['SD']
-        st.write(f'SD = {sd}')
-        mdl_b = x_bar + t_stat * sd
-        st.write(f'MDL$_b$ = {mdl_b}')
+        st.write(f'Number of Points =', number_points)
+        if number_points <= 100:
+            st.write('Since the degrees of freedom are less than 100, the MDL will be computed using the Students t-statistic.')
+            x_bar = np.max([blank_stats['Mean'], 0])
+            st.write(f'Mean = {x_bar}')
+            t_stat = round(stats.t.ppf(0.99, number_points-1),3)
+            st.write(f't-statistic = {t_stat}')
+            sd = blank_stats['SD']
+            st.write(f'SD = {sd}')
+            mdl_b = x_bar + t_stat * sd
+            st.write(f'MDL$_b$ = {mdl_b}')
+        else:
+            st.write('Since there are more than 100 samples available, the MDL is set to the 99th percentile of the samples, sorted in in rank order. See the EPA MDL Procedure document for a detailed description of this process.')
+            ordered_data = np.sort(blank_data)
+            rank = round(number_points*0.99)
+            mdl_b = ordered_data[rank-1]
+            st.write(f'MDL$_s$ = {mdl_b}')
+
 
         mdl = np.max([mdl_s, mdl_b])
         st.markdown(f'**MDL = {mdl}**')
