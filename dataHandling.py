@@ -39,7 +39,8 @@ class ProcessRawFiles:
         Returns: none
         """
 
-        self.analysis_data, self.display_data, self.audit_date = self.load_and_merge_data(uploaded_files)
+        self.analysis_data, self.display_data, self.audit_date= self.load_and_merge_data(uploaded_files)
+        
 
         # preserve display_data after button clicks
         if 'dataframe' not in st.session_state:
@@ -73,10 +74,10 @@ class ProcessRawFiles:
         merged_df = pd.DataFrame()
         for file in list_of_uploaded_files:
             print(f'loading {file.name}')
-            if file.name.endswith('.dat'):
-                audit_date = file.name[10:18]
-            else:
-                audit_date = file.name[0:8]
+            # if file.name.endswith('.dat'):
+            #     audit_date = file.name[10:18]
+            # else:
+            #     audit_date = file.name[0:8]
 
             # read file into pandas df
             if file.size > 0:
@@ -97,6 +98,7 @@ class ProcessRawFiles:
         cleaned_df = _self.clean_data(merged_df)
         # add datetimes
         cleaned_df = _self.add_datetimes(cleaned_df)
+        audit_date = cleaned_df.index[0].date().strftime('%Y%m%d')
 
         # made column with just datetimes
         datetime_df = _self.add_datetimes(merged_df)
@@ -110,6 +112,8 @@ class ProcessRawFiles:
         """
         Cleans data for autocalibrations
         """
+
+        df = df.copy()
         
         # clean data
         if 'GSU_PUMP_ON monitor []' in df.columns: 
@@ -130,54 +134,67 @@ class ProcessRawFiles:
         Adds datetime column to data
         """
 
-        if 'UTC Time' in df.columns:
+        # check if index is already datetimes
+        if isinstance(df.index, pd.DatetimeIndex):
+            pass
 
-            # change type of UTC columns from floats -> ints -> strings
-            df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
-            df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
+        else:
 
-            # convert times to datetimes (in UTC for now)
-            df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
+            if 'DateTime' in df.columns:
+                df['DateTime'] = pd.to_datetime(df['DateTime'], format='mixed')
+                # make Datetimes col the index
+                df.set_index(['DateTime'], inplace=True)
 
-            # sort so datetimes are in order
-            df = df.sort_values(by='DateTime')
+                # set the timezone to local
+                mountain_time = pytz.timezone('America/Denver')
+                df.index = df.index.tz_convert(mountain_time)
 
-            # make DateTime column the index
-            df.set_index(['DateTime'], inplace=True)
+            elif 'UTC Time' in df.columns:
+                # change type of UTC columns from floats -> ints -> strings
+                df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
+                df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
+
+                # convert times to datetimes (in UTC for now)
+                df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
+
+                # sort so datetimes are in order
+                df = df.sort_values(by='DateTime')
+
+                # make DateTime column the index
+                df.set_index(['DateTime'], inplace=True)
 
 
-            # convert times to local mountain time
-            mountain_time = pytz.timezone('America/Denver')
-            df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
+                # convert times to local mountain time
+                mountain_time = pytz.timezone('America/Denver')
+                df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
+            
+            elif 'time' in df.columns:
+                # convert to datetimes and sort
+                df['DateTime'] = pd.to_datetime(df['time'])
+                df = df.sort_values(by='DateTime')
+
+                # drop time column
+                df.drop('time', axis=1, inplace=True)
+
+                # make Datetimes col the index 
+                df.set_index(['DateTime'], inplace=True)
+
+                # set timesone to local    
+                mountain_time = pytz.timezone('America/Denver')
+                df.index = df.index.tz_localize('America/Denver').tz_convert(mountain_time)
+            
+            elif 'DATE' in df.columns:
+                # Combine the "DATE" and rounded "TIME" columns
+                df['DateTime'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'].astype(str))
+
+                # make Datetimes col the index 
+                df.set_index(['DateTime'], inplace=True)
+
+                # set timesone to local    
+                mountain_time = pytz.timezone('America/Denver')
+                df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
+            
         
-        elif 'time' in df.columns:
-
-            # convert to datetimes and sort
-            df['DateTime'] = pd.to_datetime(df['time'])
-            df = df.sort_values(by='DateTime')
-
-            # drop time column
-            df.drop('time', axis=1, inplace=True)
-
-            # make Datetimes col the index 
-            df.set_index(['DateTime'], inplace=True)
-
-            # set timesone to local    
-            mountain_time = pytz.timezone('America/Denver')
-            df.index = df.index.tz_localize('America/Denver').tz_convert(mountain_time)
-        
-        elif 'DATE' in df.columns:
-
-            # Combine the "DATE" and rounded "TIME" columns
-            df['DateTime'] = pd.to_datetime(df['DATE'] + ' ' + df['TIME'].astype(str))
-
-            # make Datetimes col the index 
-            df.set_index(['DateTime'], inplace=True)
-
-            # set timesone to local    
-            mountain_time = pytz.timezone('America/Denver')
-            df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
-
         return df
     
     def add_flag_column(self, df):
@@ -232,7 +249,6 @@ class CheckInputs:
         """
 
         headers = data.columns.tolist()
-        print(headers)
  
 
         if compound in headers:
