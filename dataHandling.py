@@ -150,23 +150,44 @@ class ProcessRawFiles:
                 df.index = df.index.tz_convert(mountain_time)
 
             elif 'UTC Time' in df.columns:
-                # change type of UTC columns from floats -> ints -> strings
-                df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
-                df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
+                # check if UTC Time column frozen
+                all_same = (df['UTC Time'] == df['UTC Time'].iloc[0]).all()
+                if all_same:
+                    # use UNIX timestemp column instead
+                    df['DateTime'] = pd.to_datetime(df['UNIX timestamp of the measure time (s)'], unit='s')
 
-                # convert times to datetimes (in UTC for now)
-                df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
+                    # sort so datetimes are in order
+                    df = df.sort_values(by='DateTime')
 
-                # sort so datetimes are in order
-                df = df.sort_values(by='DateTime')
-
-                # make DateTime column the index
-                df.set_index(['DateTime'], inplace=True)
+                    # make DateTime column the index
+                    df.set_index(['DateTime'], inplace=True)
 
 
-                # convert times to local mountain time
-                mountain_time = pytz.timezone('America/Denver')
-                df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
+                    # convert times to local mountain time
+                    utc_6 = pytz.FixedOffset(6*60) ### THIS WILL PROBABLY ONLY WORK DURING DAYLIGHT SAVINGS TIMES
+                    mountain_time = pytz.timezone('America/Denver')
+                    df.index = df.index.tz_localize(utc_6).tz_convert(mountain_time)
+
+                    
+
+                else:
+                    # change type of UTC columns from floats -> ints -> strings
+                    df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
+                    df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
+
+                    # convert times to datetimes (in UTC for now)
+                    df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
+
+                    # sort so datetimes are in order
+                    df = df.sort_values(by='DateTime')
+
+                    # make DateTime column the index
+                    df.set_index(['DateTime'], inplace=True)
+
+
+                    # convert times to local mountain time
+                    mountain_time = pytz.timezone('America/Denver')
+                    df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
             
             elif 'time' in df.columns:
                 # convert to datetimes and sort
