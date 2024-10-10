@@ -50,6 +50,10 @@ class ZeroAirAnalysis:
 
         # shorted df to the timeframe to analyze
         analysis_series = self.analysis_tools.shorten_to_analysis(analysis_data, self.start_time, self.end_time, self.compound)
+
+        # if there is no remaining data
+        if analysis_series.empty:
+            st.write('No data to process. Please check that there is data between the given Start Time and End Time.')
        
         # find ideal grouping of points
         ideal_data = self.analysis_tools.find_ideal_grouping(analysis_series)

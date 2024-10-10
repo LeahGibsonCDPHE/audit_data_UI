@@ -161,7 +161,6 @@ class ProcessRawFiles:
                     # make DateTime column the index
                     df.set_index(['DateTime'], inplace=True)
 
-
                     # convert times to local mountain time
                     utc_6 = pytz.FixedOffset(6*60) ### THIS WILL PROBABLY ONLY WORK DURING DAYLIGHT SAVINGS TIMES
                     mountain_time = pytz.timezone('America/Denver')
@@ -201,7 +200,8 @@ class ProcessRawFiles:
 
                 # set timesone to local    
                 mountain_time = pytz.timezone('America/Denver')
-                df.index = df.index.tz_localize('America/Denver').tz_convert(mountain_time)
+                mst = pytz.timezone('Etc/GMT+7')
+                df.index = df.index.tz_localize(mst).tz_convert(mountain_time)
             
             elif 'DATE' in df.columns:
                 # Combine the "DATE" and rounded "TIME" columns
@@ -327,6 +327,7 @@ class DataAnalysisTools:
 
         # select chunk of data for specified time range and turn to series
         analysis_data = df[(df.index >= start_time) & (df.index <= end_time)][compound]
+
 
         return analysis_data
     
