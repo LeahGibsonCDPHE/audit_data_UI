@@ -51,7 +51,6 @@ class ProcessRawFiles:
             st.session_state.dataframe = self.display_data
 
 
-        
         self.session_state_data = st.session_state.dataframe
         
         
@@ -382,6 +381,10 @@ class DataAnalysisTools:
                     if (value - data_mean)**2 == max_distance:
                         remove_point = value
                         break
+            
+            # if the removed point == mean, stop process
+            if remove_point == data_mean:
+                break
 
             # remove the point from the audit series
             removed_series = audit_series.drop(max_distance_index)
@@ -409,6 +412,7 @@ class DataAnalysisTools:
                 else:
                     avg_within_cluster_distance = np.nanmean([abs(remove_point - p) for p in below_mean_removed_data if p != remove_point])
                 between_cluster_distance = np.nanmean([abs(remove_point - val) for val in low_percentile.values])
+
            
 
             # # minimum distance between removed point and points in cluster
