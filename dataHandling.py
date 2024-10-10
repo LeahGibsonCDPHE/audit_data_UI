@@ -178,6 +178,7 @@ class ProcessRawFiles:
                 # check if UTC Time column frozen
                 all_same = (df['UTC Time'] == df['UTC Time'].iloc[0]).all()
                 if all_same:
+                    print('all dates the same')
                     # use UNIX timestemp column instead
                     df['DateTime'] = pd.to_datetime(df['UNIX timestamp of the measure time (s)'], unit='s')
 
@@ -195,9 +196,15 @@ class ProcessRawFiles:
                     
 
                 else:
+                    print('converting')
                     # change type of UTC columns from floats -> ints -> strings
                     df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
-                    df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str)
+                    df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str).str.zfill(6) # adding padding for correct dates
+
+                    print(df['UTC Time'])
+
+                    # export df to a csv incase there is an error
+                    df.to_csv('df.csv')
 
                     # convert times to datetimes (in UTC for now)
                     df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
