@@ -7,6 +7,8 @@ All handling of all incoming data done here:
 import os
 import base64
 import re
+import zipfile
+import io
 import chardet
 import pytz
 import pandas as pd
@@ -69,29 +71,53 @@ class ProcessRawFiles:
         Returns: df of cleaned data for analysis and raw df with only datetime column added and the date of analysis
         """
 
-        # load data
+
+        # load data if not zip file
         merged_df = pd.DataFrame()
         for file in list_of_uploaded_files:
-            print(f'loading {file.name}')
-            # if file.name.endswith('.dat'):
-            #     audit_date = file.name[10:18]
-            # else:
-            #     audit_date = file.name[0:8]
 
-            # read file into pandas df
-            if file.size > 0:
-                # Save file locally
-                with open(file.name, 'wb') as f:
-                    f.write(file.read())
-                with open(file.name, 'rb') as f:
-                    result = chardet.detect(f.read())
-                if file.name.endswith('.dat'):
-                    df = pd.read_csv(file.name, delim_whitespace=True, encoding=result['encoding'])
-                else:
-                    df = pd.read_csv(file.name, encoding=result['encoding'], dtype={'UTC Time': float})
-
-                merged_df = pd.concat([merged_df, df], ignore_index=True)
+            if file.name.endswith('.zip'):
+                # open zip files
+                with zipfile.ZipFile(file) as z:
+                 with zipfile.ZipFile(file) as z:
         
+                    # Iterate over all files in the zip
+                    for filename in z.namelist():
+                        if filename.endswith('.csv'):
+                            with z.open(filename) as f:
+                                # Read the content and detect encoding
+                                content = f.read()
+                                result = chardet.detect(content)
+                                
+                                # Create a BytesIO object from the content
+                                csv_file = io.BytesIO(content)
+                                
+                                # Read the CSV into a DataFrame
+                                df = pd.read_csv(csv_file, encoding=result['encoding'], dtype={'UTC Time': float})
+                                merged_df = pd.concat([merged_df, df], ignore_index=True)
+                              
+
+            else:
+                print(f'loading {file.name}')
+                # if file.name.endswith('.dat'):
+                #     audit_date = file.name[10:18]
+                # else:
+                #     audit_date = file.name[0:8]
+
+                # read file into pandas df
+                if file.size > 0:
+                    # Save file locally
+                    with open(file.name, 'wb') as f:
+                        f.write(file.read())
+                    with open(file.name, 'rb') as f:
+                        result = chardet.detect(f.read())
+                    if file.name.endswith('.dat'):
+                        df = pd.read_csv(file.name, delim_whitespace=True, encoding=result['encoding'])
+                    else:
+                        df = pd.read_csv(file.name, encoding=result['encoding'], dtype={'UTC Time': float})
+
+                    merged_df = pd.concat([merged_df, df], ignore_index=True)
+            
         
         # clean data
         cleaned_df = _self.clean_data(merged_df)
