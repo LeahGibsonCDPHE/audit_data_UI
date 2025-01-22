@@ -134,6 +134,11 @@ if uploaded_files:
         blank_end_error = mdl_form.empty()
         compound = mdl_form.text_input('Compound Name (as it appears in the data)')
         compound_error = mdl_form.empty()
+        time_averaging = mdl_form.radio(
+            "Apply time averaging?",
+            options=['None', '1 minute', '5 minutes'],
+            horizontal=True  # This makes the options appear in a row
+        )
 
         submit_button = mdl_form.form_submit_button('Analyze')
 
@@ -148,7 +153,7 @@ if uploaded_files:
             # if all passes, continue with analysis
             if spike_start_check and spike_end_check and blank_start_check and blank_end_check and compound_check:
                 # proceed with analysis
-                MDLCheckAnalysis(spike_start_time, spike_end_time, blank_start_time, blank_end_time, files.audit_date, compound, files.analysis_data, audit_df)
+                MDLCheckAnalysis(spike_start_time, spike_end_time, blank_start_time, blank_end_time, time_averaging, files.audit_date, compound, files.analysis_data, audit_df)
 
             else:
                 if not spike_start_check:

@@ -143,13 +143,14 @@ class CalGasAnalysis:
 
 class MDLCheckAnalysis:
 
-    def __init__(self, spike_start, spike_end, blank_start, blank_end, audit_date, compound, analysis_data, display_data):
+    def __init__(self, spike_start, spike_end, blank_start, blank_end, time_averaging, audit_date, compound, analysis_data, display_data):
         """
         Inputs:
         - spike_start: start time for spike
         - spike_end: end time for spike
         - blank_start: start time for blank
         - blank_end: end time for blank
+        - time_averaging: time bin averaging for the analysis
         - audit_date: 'yyyymmdd'
         - compound: compound header strv
         - analysis_data: df to be used in analydid
@@ -158,14 +159,18 @@ class MDLCheckAnalysis:
         self.analysis_tools = DataAnalysisTools()
         self.plot = DataVisualization()
 
-
         # convert times to datetimes
         self.spike_start = self.analysis_tools.localize_time_inputs(spike_start, audit_date)
         self.spike_end = self.analysis_tools.localize_time_inputs(spike_end, audit_date)
         self.blank_start = self.analysis_tools.localize_time_inputs(blank_start, audit_date)
         self.blank_end = self.analysis_tools.localize_time_inputs(blank_end, audit_date)
-
         self.compound = compound
+        time_bin = {
+            'None': None,
+            '1 minute': 1,
+            '5 minutes': 5,
+        }
+        self.time_averaging = time_bin[time_averaging]
         
         # curve fit for t-stat data
         epa_t_statistic = {
@@ -174,8 +179,6 @@ class MDLCheckAnalysis:
         }
 
         self.popt = self.analysis_tools.curve_fit(epa_t_statistic['n'], epa_t_statistic['t'])
-
-
 
 
         # flag the display data (and update state)
@@ -193,11 +196,27 @@ class MDLCheckAnalysis:
         # find ideal grouping of points
         spike_data = self.analysis_tools.find_ideal_grouping(spike_series)
 
+        # re-shorten data based on ideal grouping
+        if self.time_averaging is not None:
+            spike_start = spike_data.index[0]
+            spike_end = spike_data.index[-1]
+            spike_data = self.analysis_tools.shorten_to_analysis(analysis_data, spike_start, spike_end, self.compound)
+            # group data into x minute long averages
+            spike_data = spike_data.resample(f'{self.time_averaging}T').mean()
+
 
         # shorted df to the timeframe to analyze
         blank_series = self.analysis_tools.shorten_to_analysis(analysis_data, self.blank_start, self.blank_end, self.compound)
         # find ideal grouping of points
         blank_data = self.analysis_tools.find_ideal_grouping(blank_series)
+
+        # re-shorten based on ideal grouping
+        if self.time_averaging is not None:
+            blank_start = blank_data.index[0]
+            blank_end = blank_data.index[-1]
+            blank_data = self.analysis_tools.shorten_to_analysis(analysis_data, blank_start, blank_end, self.compound)
+            # group data into x minute long averages
+            blank_data = blank_data.resample(f'{self.time_averaging}T').mean()
 
         # plot data
         self.plot.scatter_selection(analysis_data[self.compound], spike_series, blank_series, spike_data, blank_data)
