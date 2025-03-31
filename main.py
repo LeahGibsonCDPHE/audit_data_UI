@@ -19,7 +19,7 @@ st.markdown("<h1 style='font-size:50px'>Audit Data Processor</h1>", unsafe_allow
 welcome = st.write("After selecting the date of the audit, upload all data files from the audit.")
 
 # upload files
-uploaded_files = st.file_uploader("Choose a file", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Choose a file", accept_multiple_files=True, type=['csv'])
 
 if uploaded_files:
     # load and merge files

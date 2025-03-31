@@ -9,9 +9,9 @@ import base64
 import re
 import zipfile
 import io
-import chardet
 import pytz
 import pandas as pd
+import polars as pl
 import numpy as np
 import streamlit as st
 from datetime import datetime
@@ -73,52 +73,35 @@ class ProcessRawFiles:
 
 
         # load data if not zip file
-        merged_df = pd.DataFrame()
+        combined_dfs = []
         for file in list_of_uploaded_files:
+            if file.size > 0:
 
-            if file.name.endswith('.zip'):
-                # open zip files
-                with zipfile.ZipFile(file) as z:
-                 with zipfile.ZipFile(file) as z:
-        
-                    # Iterate over all files in the zip
-                    for filename in z.namelist():
-                        if filename.endswith('.csv'):
-                            with z.open(filename) as f:
-                                # Read the content and detect encoding
-                                content = f.read()
-                                result = chardet.detect(content)
-                                
-                                # Create a BytesIO object from the content
-                                csv_file = io.BytesIO(content)
-                                
-                                # Read the CSV into a DataFrame
-                                df = pd.read_csv(csv_file, encoding=result['encoding'], dtype={'UTC Time': float})
-                                merged_df = pd.concat([merged_df, df], ignore_index=True)
-                              
-
-            else:
                 print(f'loading {file.name}')
                 # if file.name.endswith('.dat'):
                 #     audit_date = file.name[10:18]
                 # else:
                 #     audit_date = file.name[0:8]
 
-                # read file into pandas df
-                if file.size > 0:
-                    # Save file locally
-                    with open(file.name, 'wb') as f:
-                        f.write(file.read())
-                    with open(file.name, 'rb') as f:
-                        result = chardet.detect(f.read())
-                    if file.name.endswith('.dat'):
-                        df = pd.read_csv(file.name, delim_whitespace=True, encoding=result['encoding'])
-                    else:
-                        df = pd.read_csv(file.name, encoding=result['encoding'], dtype={'UTC Time': float})
+                df = pl.read_csv(file)
+                combined_dfs.append(df)
 
-                    merged_df = pd.concat([merged_df, df], ignore_index=True)
-            
+
+                # # Save file locally
+                # with open(file.name, 'wb') as f:
+                #     f.write(file.read())
+                # with open(file.name, 'rb') as f:
+                #     result = chardet.detect(f.read())
+                # if file.name.endswith('.dat'):
+                #     df = pd.read_csv(file.name, delim_whitespace=True, encoding=result['encoding'])
+                # else:
+                #     df = pd.read_csv(file.name, encoding=result['encoding'], dtype={'UTC Time': float})
+
+                # merged_df = pd.concat([merged_df, df], ignore_index=True)
         
+        merged_df = pl.concat(combined_dfs, how="vertical")
+        merged_df = merged_df.to_pandas()
+            
         # clean data
         cleaned_df = _self.clean_data(merged_df)
         # add datetimes
@@ -196,15 +179,12 @@ class ProcessRawFiles:
                     
 
                 else:
-                    print('converting')
                     # change type of UTC columns from floats -> ints -> strings
                     df['UTC Date'] = df['UTC Date'].astype(int).astype(str)
                     df['UTC Time'] = df['UTC Time'].round().astype(int).astype(str).str.zfill(6) # adding padding for correct dates
 
-                    print(df['UTC Time'])
-
-                    # export df to a csv incase there is an error
-                    df.to_csv('df.csv')
+                    # # export df to a csv incase there is an error
+                    # df.to_csv('df.csv')
 
                     # convert times to datetimes (in UTC for now)
                     df['DateTime'] = pd.to_datetime(df['UTC Date'] + df['UTC Time'], format='%d%m%Y%H%M%S')
