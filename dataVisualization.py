@@ -9,7 +9,6 @@ import contextily as cx
 import geopandas as gpd
 from matplotlib_scalebar.scalebar import ScaleBar
 from pyproj import CRS, Proj, Transformer, transform
-import mpld3
 
 # Customize fonts and sizes
 plt.rcParams.update({
