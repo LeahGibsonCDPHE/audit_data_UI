@@ -354,6 +354,8 @@ class GPSCheck:
         gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df['GPS Longitude (\u00b0E)'], df['GPS Latitude (\u00b0N)']), crs=CRS('EPSG:4326'))
         gdf_wm = gdf.to_crs('EPSG:3857')
 
+        st.write("Page under developement. No map to display.")
+
         self.plot.gps_map(df, gdf_wm)
 
 

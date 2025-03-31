@@ -7,7 +7,6 @@ All handling of all incoming data done here:
 import os
 import base64
 import re
-import zipfile
 import io
 import pytz
 import pandas as pd

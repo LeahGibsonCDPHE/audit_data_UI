@@ -5,10 +5,9 @@ Code for making plots in streamlit
 import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
-import contextily as cx
-import geopandas as gpd
 from matplotlib_scalebar.scalebar import ScaleBar
 from pyproj import CRS, Proj, Transformer, transform
+
 
 # Customize fonts and sizes
 plt.rcParams.update({
@@ -137,30 +136,30 @@ class DataVisualization:
         #st.components.v1.html(fig_html, height=600)
         st.pyplot(fig)
     
-    def gps_map(self, df, gdf):
-        """
-        plots gps data
-        """
+    # def gps_map(self, df, gdf):
+    #     """
+    #     plots gps data
+    #     """
 
-        fig, ax = plt.subplots()
-        ax.plot(df['GPS Number Of Satellites'])
-        st.pyplot(fig)
+    #     fig, ax = plt.subplots()
+    #     ax.plot(df['GPS Number Of Satellites'])
+    #     st.pyplot(fig)
 
-        # plot
-        ax = gdf.plot(markersize=5, column=df['GPS Number Of Satellites'], cmap='viridis', legend=True)
-        cx.add_basemap(ax, zoom=15, source=cx.providers.Esri.WorldImagery)
+    #     # plot
+    #     ax = gdf.plot(markersize=5, column=df['GPS Number Of Satellites'], cmap='viridis', legend=True)
+    #     cx.add_basemap(ax, zoom=15, source=cx.providers.Esri.WorldImagery)
         
 
-        # Add scale bar
-        scalebar = ScaleBar(1, location='lower right')  # 1 pixel = 1 unit (you can adjust this)
-        ax.add_artist(scalebar)
-        ax.set_axis_off()
+    #     # Add scale bar
+    #     scalebar = ScaleBar(1, location='lower right')  # 1 pixel = 1 unit (you can adjust this)
+    #     ax.add_artist(scalebar)
+    #     ax.set_axis_off()
 
-        # Label the legend
-        ax.legend(title='GPS Number Of Satellites')
+    #     # Label the legend
+    #     ax.legend(title='GPS Number Of Satellites')
 
-        fig.tight_layout()
+    #     fig.tight_layout()
 
-        #fig_html = mpld3.fig_to_html(fig)
-        #st.components.v1.html(fig_html, height=600)
-        st.pyplot(ax.figure)
+    #     #fig_html = mpld3.fig_to_html(fig)
+    #     #st.components.v1.html(fig_html, height=600)
+    #     st.pyplot(ax.figure)

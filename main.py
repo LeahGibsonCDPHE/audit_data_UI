@@ -210,10 +210,12 @@ if uploaded_files:
     with gps_tab:
         st.header("GPS Check Analysis")
 
-        analyze_button = st.button('View GPS Analysis')
+        st.write("GPS section under development. No data to display.")
 
-        if analyze_button:
-            GPSCheck(files.analysis_data)
+        # analyze_button = st.button('View GPS Analysis')
+
+        # if analyze_button:
+        #     GPSCheck(files.analysis_data)
 
 
 
