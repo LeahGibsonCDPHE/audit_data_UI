@@ -81,8 +81,8 @@ class ProcessRawFiles:
                 #     audit_date = file.name[0:8]
 
                 df = pl.read_csv(file)
-                if len(df) > 1:
-                    combined_dfs.append(df)
+
+                combined_dfs.append(df)
 
 
                 # # Save file locally
@@ -97,7 +97,7 @@ class ProcessRawFiles:
 
                 # merged_df = pd.concat([merged_df, df], ignore_index=True)
         
-        merged_df = pl.concat(combined_dfs, how="vertical")
+        merged_df = pl.concat(combined_dfs, how="diagonal")
         merged_df = merged_df.to_pandas()
             
         # clean data
