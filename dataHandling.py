@@ -42,7 +42,6 @@ class ProcessRawFiles:
 
         self.analysis_data, self.display_data, self.audit_date= self.load_and_merge_data(uploaded_files)
         
-
         # preserve display_data after button clicks
         if 'dataframe' not in st.session_state:
             st.session_state.dataframe = self.display_data  
@@ -70,7 +69,6 @@ class ProcessRawFiles:
         Returns: df of cleaned data for analysis and raw df with only datetime column added and the date of analysis
         """
 
-
         # load data if not zip file
         combined_dfs = []
         for file in list_of_uploaded_files:
@@ -83,7 +81,8 @@ class ProcessRawFiles:
                 #     audit_date = file.name[0:8]
 
                 df = pl.read_csv(file)
-                combined_dfs.append(df)
+                if len(df) > 1:
+                    combined_dfs.append(df)
 
 
                 # # Save file locally
@@ -225,7 +224,10 @@ class ProcessRawFiles:
                 # set timesone to local    
                 mountain_time = pytz.timezone('America/Denver')
                 df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
-            
+
+        # remove duplicate indices
+        df = df[~df.index.duplicated(keep='first')]
+        
         
         return df
     
