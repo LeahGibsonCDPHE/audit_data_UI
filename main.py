@@ -16,10 +16,10 @@ st.markdown("<h1 style='font-size:50px'>Audit Data Processor</h1>", unsafe_allow
 # date selector
 #audit_date = st.date_input('Select date of audit.', format='YYYY/MM/DD')
 
-welcome = st.write("After selecting the date of the audit, upload all data files from the audit.")
+welcome = st.write("Upload all data files from the audit. Please only upload data of a single type (i.e. all only .csv or all only .dat).")
 
 # upload files
-uploaded_files = st.file_uploader("Choose a file", accept_multiple_files=True, type=['csv'])
+uploaded_files = st.file_uploader("Choose a file", accept_multiple_files=True, type=['csv', 'dat'])
 
 if uploaded_files:
     # load and merge files

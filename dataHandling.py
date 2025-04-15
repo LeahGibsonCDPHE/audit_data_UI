@@ -75,27 +75,14 @@ class ProcessRawFiles:
             if file.size > 0:
 
                 print(f'loading {file.name}')
-                # if file.name.endswith('.dat'):
-                #     audit_date = file.name[10:18]
-                # else:
-                #     audit_date = file.name[0:8]
-
-                df = pl.read_csv(file)
+                if file.name.endswith('csv'):
+                    df = pl.read_csv(file)
+                elif file.name.endswith('dat'):
+                    df = pd.read_csv(file, delim_whitespace=True)
+                    df = pl.from_pandas(df)
 
                 combined_dfs.append(df)
 
-
-                # # Save file locally
-                # with open(file.name, 'wb') as f:
-                #     f.write(file.read())
-                # with open(file.name, 'rb') as f:
-                #     result = chardet.detect(f.read())
-                # if file.name.endswith('.dat'):
-                #     df = pd.read_csv(file.name, delim_whitespace=True, encoding=result['encoding'])
-                # else:
-                #     df = pd.read_csv(file.name, encoding=result['encoding'], dtype={'UTC Time': float})
-
-                # merged_df = pd.concat([merged_df, df], ignore_index=True)
         
         merged_df = pl.concat(combined_dfs, how="diagonal")
         merged_df = merged_df.to_pandas()
@@ -221,7 +208,7 @@ class ProcessRawFiles:
                 # make Datetimes col the index 
                 df.set_index(['DateTime'], inplace=True)
 
-                # set timesone to local    
+                # set time to local    
                 mountain_time = pytz.timezone('America/Denver')
                 df.index = df.index.tz_localize('UTC').tz_convert(mountain_time)
 
