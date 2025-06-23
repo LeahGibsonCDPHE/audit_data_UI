@@ -76,6 +76,8 @@ class ProcessRawFiles:
                 elif file.name.endswith("dat"):
                     df = pd.read_csv(file, delim_whitespace=True)
                     df = pl.from_pandas(df)
+                elif file.name.endswith("txt"):
+                    df = pl.read_csv(file, separator="\t")
 
                 combined_dfs.append(df)
 
@@ -114,6 +116,9 @@ class ProcessRawFiles:
         # convert HCN to ppb
         if "HCNI-" in df.columns:
             df["HCNI-"] = df["HCNI-"] * 1e-3
+
+        if "HCNI- [pptv]" in df.columns:
+            df["HCNI- [pptv]"] = df["HCNI- [pptv]"] * 1e-3
 
         return df
 
@@ -210,6 +215,13 @@ class ProcessRawFiles:
                 df.set_index(["DateTime"], inplace=True)
 
                 # set time to local
+                mountain_time = pytz.timezone("America/Denver")
+                df.index = df.index.tz_localize("UTC").tz_convert(mountain_time)
+
+            # AIM txt files
+            elif "Datetime (UTC)" in df.columns:
+                df["DateTime"] = pd.to_datetime(df["Datetime (UTC)"])
+                df.set_index(["DateTime"], inplace=True)
                 mountain_time = pytz.timezone("America/Denver")
                 df.index = df.index.tz_localize("UTC").tz_convert(mountain_time)
 

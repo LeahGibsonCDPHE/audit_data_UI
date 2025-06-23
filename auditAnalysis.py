@@ -319,7 +319,7 @@ class MDLCheckAnalysis:
         sd = spike_stats["SD"]
         st.write(f"SD = {sd}")
         mdl_s = t_stat * sd
-        st.write(f"MDL$_s$ = {mdl_s}")
+        st.write(f"MDL$_s$ = {round(mdl_s, 4)}")
 
         st.markdown("**MDL$_b$ Computation**")
         number_points = len(blank_data)
@@ -335,7 +335,7 @@ class MDLCheckAnalysis:
             sd = blank_stats["SD"]
             st.write(f"SD = {sd}")
             mdl_b = x_bar + t_stat * sd
-            st.write(f"MDL$_b$ = {mdl_b}")
+            st.write(f"MDL$_b$ = {round(mdl_b, 4)}")
         else:
             st.write(
                 "Since there are more than 100 samples available, the MDL is set to the 99th percentile of the samples, sorted in in rank order. See the EPA MDL Procedure document for a detailed description of this process."
@@ -343,10 +343,19 @@ class MDLCheckAnalysis:
             ordered_data = np.sort(blank_data)
             rank = round(number_points * 0.99)
             mdl_b = ordered_data[rank - 1]
-            st.write(f"MDL$_s$ = {mdl_b}")
+            st.write(f"MDL$_s$ = {round(mdl_b, 4)}")
 
         mdl = np.max([mdl_s, mdl_b])
-        st.markdown(f"**MDL = {mdl}**")
+        lod = blank_stats["SD"] * 3
+        loq = blank_stats["SD"] * 10
+
+        st.info(f"""
+        **MDL = {round(mdl, 4)}**
+
+        LOD = {round(lod, 4)}
+
+        LOQ = {round(loq, 4)}
+        """)
 
 
 class iMetAnalysis:

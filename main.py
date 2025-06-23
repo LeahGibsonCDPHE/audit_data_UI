@@ -19,12 +19,12 @@ st.markdown(
 # audit_date = st.date_input('Select date of audit.', format='YYYY/MM/DD')
 
 welcome = st.write(
-    "Upload all data files from the audit. Please only upload data of a single type (i.e. all only .csv or all only .dat)."
+    "Upload all data files from the audit. Please only upload data of a single type (i.e. all only .csv, all only .dat, or all only .txt)."
 )
 
 # upload files
 uploaded_files = st.file_uploader(
-    "Choose a file", accept_multiple_files=True, type=["csv", "dat"]
+    "Choose a file", accept_multiple_files=True, type=["csv", "dat", "txt"]
 )
 
 if uploaded_files:
